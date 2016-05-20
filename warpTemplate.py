@@ -154,6 +154,7 @@ def itera(template):
     for im in imgList:
         imgPath = os.path.join(imgSetDir, im)
         landmark2D = landmarkFromFacepp(imgPath)[19:]
+        #landmark2D = landmarkFromFacepp(imgPath)
         P = calP(landmark2D, landmark3D)
         pMatrix.append(P)
         W = np.zeros((2*vCount,1))
@@ -191,7 +192,7 @@ def itera(template):
 if __name__ == '__main__':
     time1 = time.time()
     rootDir = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data'
-    imgSetDir = os.path.join(rootDir, 'imgSet2')
+    imgSetDir = os.path.join(rootDir, 'liu')
     landmarkPath = os.path.join(rootDir, 'landmark.txt')
     templatePath = os.path.join(rootDir, 'template2.obj')
     tempPath = os.path.join(rootDir, 'tempResult')

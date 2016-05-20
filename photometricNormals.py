@@ -8,7 +8,7 @@ import numpy as np
 import os
 from PIL import Image,ImageDraw
 
-demoImagePath = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\imgSet2\_Canon EOS 700D (294075042050)_11244.jpg'
+demoImagePath = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\liu\01448656.JPG'
 
 def getM(template, pSet, imgSetDir):
     M = []
@@ -29,12 +29,13 @@ def computeSt(template, M):
     costVal = 0
     rho = np.ones((imgNum, vNum))
     n = np.c_[np.ones((vNum, 1)), np.array(template.vn)].T
-    while 1:
+    #while 1:
+    for i in range(5):
         L = (M/rho).dot(np.linalg.pinv(n))
         Ln = np.dot(L, n)
         newCostVal = np.linalg.norm(Ln * rho - M)
-        if abs(costVal - newCostVal) < 0.1:
-            break
+        #if abs(costVal - newCostVal) < 1000:
+            #break
         costVal = newCostVal
         print costVal
         rhoVal = M/Ln
@@ -77,7 +78,7 @@ def projectL(P, landmark3D):
     return P.dot(lm.T).T[:,0:2] 
     
 def drawAlbedo(P, vertex3D, rho, imgShape):
-    radius1 = 20
+    radius1 = 5
     #radius2 = 19
     rhoN = rho/rho.max()
     im = np.ones(imgShape)*255
@@ -99,7 +100,7 @@ if __name__ == '__main__':
     pSet = pMatrix
     M = getM(template, pSet, imgSetDir)
     [St, rho] = computeSt(template, M)
-    imgAlbedo = drawAlbedo(pSet[3], template.v, rho[0,:], imgShape)
+    imgAlbedo = drawAlbedo(pSet[1], template.v, rho[0,:], imgShape)
     imgAlbedo.show()
     refineS = normalRefine(M, St)
     Norm = getNorm(refineS, rho)
