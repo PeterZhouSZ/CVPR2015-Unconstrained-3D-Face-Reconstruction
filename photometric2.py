@@ -28,16 +28,28 @@ def getM(template, pSet, imgSetDir):
 def getNorm(template, M):
     vNum = len(template.v)
     imgNum = len(M)
-    N = np.c_[np.ones((vNum, 1)), np.array(template.vn)].T
-    iniL = M.dot(np.linalg.pinv(N))
-    rho = updateRho(M, iniL, N)[0]
-    productRL = matrixL(iniL, vNum, imgNum).dot(matrixRho(rho))
-    return computeN(productRL, M, N)
+    iniN = np.c_[np.ones((vNum, 1)), np.array(template.vn)].T
+    iniL = M.dot(np.linalg.pinv(iniN))
+    Norm = iniN
+    L = iniL
+    rho = updateRho(M, L, Norm.reshape((4,Norm.size/4)))
+    for i in range(3):
+        if i!=0:
+            rho = updateRho(M, L, Norm)
+            L = updateL(M, rho, Norm)
+        productRL = matrixL(L, vNum, imgNum).dot(matrixRho(rho[0]))
+        vecNorm = computeN(productRL, M, Norm)
+        Norm = vecNorm.reshape((4,vecNorm.size/4))
+        print np.linalg.norm(M-rho*L.dot(Norm))
+        
+    return Norm
 
 def computeN(productRL, M, N):
     left = productRL.T.dot(productRL) + csr_matrix(np.eye(productRL.shape[1]))
     right = productRL.T.dot(matrix2vector(M)) + matrix2vector(N)
     return spsolve(left, right)
+
+
 
 def matrix2vector(matrix):
     return matrix.reshape((matrix.size,1))
@@ -52,8 +64,6 @@ def matrixL(l, vNum, imgNum):
         for j in range(vNum):
             matrixL[vNum*i+j,4*j:4*j+4] = l[i]
     return csr_matrix(matrixL)
-        
-    
 
 #更新 L
 def updateL(M, rho, N):
