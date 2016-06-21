@@ -32,7 +32,7 @@ def getNorm(template, M):
     iniL = M.dot(np.linalg.pinv(iniN))
     Norm = iniN
     L = iniL
-    rho = updateRho(M, L, Norm.reshape((4,Norm.size/4)))
+    rho = np.ones((imgNum, vNum))
     for i in range(3):
         if i!=0:
             rho = updateRho(M, L, Norm)
@@ -40,7 +40,7 @@ def getNorm(template, M):
         productRL = matrixL(L, vNum, imgNum).dot(matrixRho(rho[0]))
         vecNorm = computeN(productRL, M, Norm)
         Norm = vecNorm.reshape((4,vecNorm.size/4))
-        print np.linalg.norm(M-rho*L.dot(Norm))
+        print np.linalg.norm(M-rho*L.dot(Norm))+np.linalg.norm(Norm-iniN)
         
     return Norm
 
