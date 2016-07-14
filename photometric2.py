@@ -23,7 +23,7 @@ def getM(template, pSet, imgSetDir):
         proPts = np.round(map(lambda x:np.dot(p, x), Xh))[:,:2]
         tempM = map(lambda x:im[x[1], x[0]], proPts)
         M.append(tempM)
-    return np.array(M, dtype = np.float)
+    return np.array(M, dtype = np.float)/255 
     
 def getNorm(template, M):
     vNum = len(template.v)
@@ -35,18 +35,18 @@ def getNorm(template, M):
     rho = np.ones((imgNum, vNum))
     for i in range(3):
         (rho, L) = updateLP(M, Norm, rho)
-        Norm = np.linalg.lstsq(L, M/rho)[0]
-        #productRL = matrixL(L, vNum, imgNum).dot(matrixRho(rho[0]))
-        #vecNorm = computeN(productRL, M, Norm)
+        #Norm = np.linalg.lstsq(L, M/rho)[0]
+        productRL = matrixL(L, vNum, imgNum).dot(matrixRho(rho[0]))
+        vecNorm = computeN(productRL, M, Norm)
         #vecNorm = lsqr(productRL, matrix2vector(M))[0]
-        #Norm = vecNorm.reshape((4,vecNorm.size/4))
+        Norm = vecNorm.reshape((4,vecNorm.size/4))
         print np.linalg.norm(M-rho*L.dot(Norm))
         print ('{} times'.format(i))
         
     return Norm
 
 def computeN(productRL, M, N):
-    lam = productRL.max()
+    lam = 10
     left = productRL.T.dot(productRL) + lam*csr_matrix(np.eye(productRL.shape[1]))
     right = productRL.T.dot(matrix2vector(M)) + lam*matrix2vector(N)
     return spsolve(left, right)
@@ -64,10 +64,7 @@ def matrixL(l, vNum, imgNum):
         for j in range(vNum):
             matrixL[vNum*i+j,4*j:4*j+4] = l[i]
     return csr_matrix(matrixL)
-#更新 L
-def updateL(M, rho, N):
-    return (M/rho).dot(np.linalg.pinv(N))
-#更新每次迭代后的rho
+    
 def updateRho(M, l, N):
     rhoVal = M/(l.dot(N))
     meanRho = np.mean(rhoVal, axis = 0)
@@ -82,21 +79,46 @@ def updateRho(M, l, N):
     rho = (np.repeat(meanRho, len(M), axis = 1)).T
     return rho
 
+def updateRho2(M, l, N):
+    R = l.dot(N)
+    pointNum = len(M.T)
+    rhoOne = np.zeros((pointNum, 1))
+    for i in range(pointNum):
+        rhoOne[i] = np.inner(M[:,i],R[:,i])/np.inner(R[:,i],R[:,i])
+    rho = (np.repeat(rhoOne, len(M), axis = 1)).T
+    return rho
+
+#def updateL(M, rho, N):
+    
+
 #更新L跟Rho
 def updateLP(M, Norm, rho):
     for i in range(3):
         #L = (M/rho).dot(np.linalg.pinv(N))
         L = (np.linalg.lstsq((Norm*rho[:4,:]).T, (M).T)[0]).T
-        print np.linalg.norm(M-rho*(L.dot(Norm)))        
-        rho = updateRho(M, L, Norm)
+        print np.linalg.norm(M-rho*(L.dot(Norm)))         
+        rho = updateRho2(M, L, Norm)
         #rho = M/(L.dot(N))
         print np.linalg.norm(M-rho*(L.dot(Norm)))
     return rho, L
-    
+
+def drawNorm(imgPath, template, Norm, P):
+    radius = 1
+    img = Image.open(imgPath)
+    imDraw = ImageDraw.Draw(img)
+    V = template.v
+    for (point, n) in zip(V, Norm.T):
+        point2D = P.dot(np.r_[point,[1]])[:2]
+        point2DP = P.dot(np.r_[point + 0.003*n,[1]])[:2]
+        imDraw.line((tuple(point2D.astype(int)), tuple(point2DP.astype(int))),fill = 'red')
+        imDraw.ellipse((point2DP[0]-radius, point2DP[1]-radius, point2DP[0]+radius, point2DP[1]+radius), fill = 'black')
+    return img
+        
+
 if __name__ == '__main__':
     pSet = pickle.load(open(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData2\pMatrix','r'))
     imgSetDir = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData2\liu'
-    template = OBJ.obj(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData\warp.obj')
+    template = OBJ.obj(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData2\warp.obj')
     template.load()
     M = getM(template, pSet, imgSetDir)
     oriNorm = template.vn
