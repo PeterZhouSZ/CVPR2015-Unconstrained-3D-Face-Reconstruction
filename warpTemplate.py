@@ -192,7 +192,7 @@ def itera(template):
 if __name__ == '__main__':
     time1 = time.time()
     rootDir = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data'
-    imgSetDir = os.path.join(rootDir, 'liu')
+    imgSetDir = os.path.join(rootDir, 'xi')
     landmarkPath = os.path.join(rootDir, 'landmark.txt')
     templatePath = os.path.join(rootDir, 'template2.obj')
     tempPath = os.path.join(rootDir, 'tempResult')

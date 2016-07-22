@@ -23,7 +23,7 @@ def getM(template, pSet, imgSetDir):
         proPts = np.round(map(lambda x:np.dot(p, x), Xh))[:,:2]
         tempM = map(lambda x:im[x[1], x[0]], proPts)
         M.append(tempM)
-    return np.array(M, dtype = np.float)/255 
+    return np.array(M, dtype = np.float)
     
 def getNorm(template, M):
     vNum = len(template.v)
@@ -36,14 +36,22 @@ def getNorm(template, M):
     for i in range(3):
         (rho, L) = updateLP(M, Norm, rho)
         #Norm = np.linalg.lstsq(L, M/rho)[0]
-        productRL = matrixL(L, vNum, imgNum).dot(matrixRho(rho[0]))
-        vecNorm = computeN(productRL, M, Norm)
+        #productRL = matrixL(L, vNum, imgNum).dot(matrixRho(rho[0]))
+        #vecNorm = computeN(productRL, M, Norm)
         #vecNorm = lsqr(productRL, matrix2vector(M))[0]
-        Norm = vecNorm.reshape((4,vecNorm.size/4))
+        #Norm = vecNorm.reshape((4,vecNorm.size/4))
+        Norm = computeN2(L, rho, M)
         print np.linalg.norm(M-rho*L.dot(Norm))
         print ('{} times'.format(i))
         
     return Norm
+
+def computeN2(L, rho, M):
+    R = M/rho
+    Rc = R - np.repeat(L[:,:1], len(M.T), axis=1)
+    N = np.linalg.lstsq(L[:,1:], Rc)[0]
+    return np.c_[np.ones((len(M.T), 1)), np.array(N.T)].T
+
 
 def computeN(productRL, M, N):
     lam = 10
@@ -88,9 +96,6 @@ def updateRho2(M, l, N):
     rho = (np.repeat(rhoOne, len(M), axis = 1)).T
     return rho
 
-#def updateL(M, rho, N):
-    
-
 #更新L跟Rho
 def updateLP(M, Norm, rho):
     for i in range(3):
@@ -109,16 +114,16 @@ def drawNorm(imgPath, template, Norm, P):
     V = template.v
     for (point, n) in zip(V, Norm.T):
         point2D = P.dot(np.r_[point,[1]])[:2]
-        point2DP = P.dot(np.r_[point + 0.003*n,[1]])[:2]
+        point2DP = P.dot(np.r_[point + 0.005*n,[1]])[:2]
         imDraw.line((tuple(point2D.astype(int)), tuple(point2DP.astype(int))),fill = 'red')
         imDraw.ellipse((point2DP[0]-radius, point2DP[1]-radius, point2DP[0]+radius, point2DP[1]+radius), fill = 'black')
     return img
         
 
 if __name__ == '__main__':
-    pSet = pickle.load(open(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData2\pMatrix','r'))
-    imgSetDir = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData2\liu'
-    template = OBJ.obj(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData2\warp.obj')
+    pSet = pickle.load(open(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData3\pMatrix','r'))
+    imgSetDir = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData3\xi'
+    template = OBJ.obj(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData3\warp.obj')
     template.load()
-    M = getM(template, pSet, imgSetDir)
+    M = getM(template, pSet[:-1], imgSetDir)
     oriNorm = template.vn
