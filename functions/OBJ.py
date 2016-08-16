@@ -21,37 +21,38 @@ class obj:
     def load(self):
         f = open(self.path, 'r')
         for line in f:
-            line = line.split(' ')
-            if line[0] == 'v':
-                vTemp = map(float, line[1:4])
-                self.v.append(vTemp)
-            if line[0] == 'vn':
-                vnTemp = map(float, line[1:4])
-                self.vn.append(vnTemp)
-            if line[0] == 'vt':
-                vtTemp = map(float, line[1:3])
-                self.vt.append(vtTemp)
-            if line[0] == 'f':
-                k = len(line[1].split('/'))
-                faceTemp = []
-                vnfaceTemp = []
-                vtfaceTemp = []
-                for i in range(1,4):
-                    lineTemp = line[i]
-                    lineTemp = map(int, lineTemp.split('/'))
-                    for j in range(k):
-                        if j == 0:
-                            faceTemp.append(lineTemp[0] - 1)                           
-                        if j == 1:
-                            vtfaceTemp.append(lineTemp[1] - 1)                            
-                        if j == 2:
-                            vnfaceTemp.append(lineTemp[2] - 1)                            
-                self.face.append(faceTemp)
-                if k == 2:
-                    self.vtface.append(vtfaceTemp)
-                else:
-                    self.vtface.append(vtfaceTemp)
-                    self.vnface.append(vnfaceTemp)
+            if line:
+                line = line.split(' ')
+                if line[0] == 'v':
+                    vTemp = map(float, line[1:4])
+                    self.v.append(vTemp)
+                if line[0] == 'vn':
+                    vnTemp = map(float, line[1:4])
+                    self.vn.append(vnTemp)
+                if line[0] == 'vt':
+                    vtTemp = map(float, line[1:3])
+                    self.vt.append(vtTemp)
+                if line[0] == 'f':
+                    k = len(line[1].split('/'))
+                    faceTemp = []
+                    vnfaceTemp = []
+                    vtfaceTemp = []
+                    for i in range(1,4):
+                        lineTemp = line[i]
+                        lineTemp = map(int, lineTemp.split('/'))
+                        for j in range(k):
+                            if j == 0:
+                                faceTemp.append(lineTemp[0] - 1)                           
+                            if j == 1:
+                                vtfaceTemp.append(lineTemp[1] - 1)                            
+                            if j == 2:
+                                vnfaceTemp.append(lineTemp[2] - 1)                            
+                    self.face.append(faceTemp)
+                    if k == 2:
+                        self.vtface.append(vtfaceTemp)
+                    else:
+                        self.vtface.append(vtfaceTemp)
+                        self.vnface.append(vnfaceTemp)
         self.v = np.array(self.v)
         if self.vn == []:
             self.vnCal()
@@ -60,7 +61,7 @@ class obj:
     #cal the vn
     def vnCal(self):
         vArray = self.v
-        normsTemp = []#save the norms value
+        normsTemp = []#save the normal value
         for i in range(len(self.v)):
             normsTemp.append([])
         for face in self.face:
@@ -68,7 +69,7 @@ class obj:
             v2 = vArray[face[1]]
             v3 = vArray[face[2]]
             tempNorm = np.cross((v1 - v2), (v1 - v3))
-            tempNorm = tempNorm / (np.sum(tempNorm * tempNorm)**0.5)
+            #tempNorm = tempNorm / np.linalg.norm(tempNorm)
             normsTemp[face[0]].append(tempNorm)
             normsTemp[face[1]].append(tempNorm)
             normsTemp[face[2]].append(tempNorm)
@@ -76,7 +77,10 @@ class obj:
         for norm in normsTemp:
             norm = map(np.mean, np.rot90(norm))
             self.vn.append(norm)
-            
+    
+
+        
+        
     #save as obj file
     def save(self, fp):
         fout = open(fp, 'w')
