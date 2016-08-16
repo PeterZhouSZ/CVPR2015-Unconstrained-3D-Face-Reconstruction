@@ -145,6 +145,7 @@ def itera(template):
     vertex = np.array(template.v)
     
     X = vertex.reshape((3*vCount,1))#3p vector
+    #X = X0
     landmark3D = vertex[landmarkIndex]
     #
     imgList = os.listdir(imgSetDir)
