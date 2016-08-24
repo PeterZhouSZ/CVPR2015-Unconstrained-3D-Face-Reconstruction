@@ -120,14 +120,14 @@ def drawNorm(imgPath, template, Norm, P):
         imDraw.ellipse((point2DP[0]-radius, point2DP[1]-radius, point2DP[0]+radius, point2DP[1]+radius), fill = 'black')
     return img
 
-"""
-LxT = L.dot(X0).reshape((19802,3))
-ans = []
-for (l, n) in zip(a2, oriNorm):
-    l = l/np.linalg.norm(l)
-    ans.append(np.dot(l, n)/np.linalg.norm(l))
-"""
+def getBoundaryIndex(filePath):
+    bIndex = []
+    for i in open(filePath, 'r'):
+        bIndex.append(int(i))
+    return bIndex
+
 if __name__ == '__main__':
+    bIndex = getBoundaryIndex(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\boundary.txt')
     pSet = pickle.load(open(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData3\pMatrix','r'))
     imgSetDir = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData3\xi'
     template = OBJ.obj(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData3\warp.obj')
@@ -142,7 +142,6 @@ if __name__ == '__main__':
     oriNormN = (np.array(map(np.linalg.norm, oriNorm))).reshape((vCount,1))
     oriNorm = oriNorm/oriNormN
     L = computeL(template)
-    #LPlus = np.r_[np.ones((3,3*vCount)),L]
     X0 = np.array(template.v).reshape((3*vCount,1))
     X = X0
     for i in range(3):
@@ -150,6 +149,7 @@ if __name__ == '__main__':
         Lx = Lx.reshape((len(Lx)/3,3))
         
         H = []
+        """
         for (h, no) in zip(Lx, oriNorm):
             hN = h.dot(no)/np.linalg.norm(h)
             if hN > 0:
@@ -162,16 +162,14 @@ if __name__ == '__main__':
                     H.append(h)
                 else:
                     H.append(-np.linalg.norm(h)*no)
+        """
+        for (h, no) in zip(Lx, oriNorm):
+            hN = h.dot(no)/np.linalg.norm(h)
+            if hN > 0:
+                H.append(np.linalg.norm(h)*no)
+            else:
+                H.append(-np.linalg.norm(h)*no)
         right = np.array(H).reshape((3*vCount,1))
-        
-                #H.append(np.linalg.norm(h))
-        #H = np.array(H).repeat(3).reshape((3*(vCount), 1))
-        #right = L.dot(X0)
-        #xx = spsolve(L, H*oriNorm.reshape((oriNorm.size,1)))
-        #right = -H*oriNorm.reshape((oriNorm.size,1))
-       # right = -H*Norm[1:].T.reshape((Norm[1:].size,1))
-        #right = H*np.ones((16722,1))
-        #rightP = np.r_[np.zeros((3,1)),right]
         xx = lsqr(L, right)[0]
         #xx = inv(L.T.dot(L)).dot(L.T).dot(b)
         temp.v = xx.reshape((vCount,3))
