@@ -26,7 +26,8 @@ def getM(template, pSet, imgSetDir):
         M.append(tempM)
     return np.array(M, dtype = np.float)
     
-def getNorm(template, M):
+def getNorm(template, pSet, imgSetDir):
+    M = getM(template, pSet, imgSetDir)
     vNum = len(template.v)
     imgNum = len(M)
     iniN = np.c_[np.ones((vNum, 1)), np.array(template.vn)].T
@@ -42,7 +43,7 @@ def getNorm(template, M):
         #vecNorm = lsqr(productRL, matrix2vector(M))[0]
         #Norm = vecNorm.reshape((4,vecNorm.size/4))
         Norm = computeN2(L, rho, M)
-        print np.linalg.norm(M-rho*L.dot(Norm))
+        #print np.linalg.norm(M-rho*L.dot(Norm))
         print ('{} times'.format(i))
         
     return Norm
@@ -109,7 +110,7 @@ def updateLP(M, Norm, rho):
     return rho, L
 
 def drawNorm(imgPath, template, Norm, P):
-    radius = 1
+    radius = 0.5
     img = Image.open(imgPath)
     imDraw = ImageDraw.Draw(img)
     V = template.v
@@ -126,55 +127,80 @@ def getBoundaryIndex(filePath):
         bIndex.append(int(i))
     return bIndex
 
+def computeH(L, X, oriNorm):
+    Lx = L.dot(X)
+    Lx = Lx.reshape((len(Lx)/3,3))        
+    H = []
+    count = 0
+    for (h, no) in zip(Lx, oriNorm):
+        if count in bIndex:
+            H.append(h)
+        else:
+            hN = h.dot(no)/np.linalg.norm(h)
+            if hN > 0:
+                H.append(np.linalg.norm(h)*no)
+            else:
+                H.append(-np.linalg.norm(h)*no)
+        count += 1        
+    return H
+
+#load landmark index without contour
+def loadLandmark(fp):
+    text = open(fp, 'r')    
+    landmarkIndex = []
+    for line in text:
+        line = line.split()[0]
+        landmarkIndex.append(int(float(line))-1)
+    return landmarkIndex[19:]
+    
+def computeX(L, H, D, pPlusSet, wSet):
+    left = L.dot(L)
+    right = L.dot(H)
+    for (p,w) in zip(pPlusSet, wSet):
+        tempL = p.dot(D)
+        left += tempL.T.dot(tempL)
+        right += p.T.dot(w)
+    #return lsqr(left, np.array(right))[0]
+    return spsolve(left, right)
+
+            
+
 if __name__ == '__main__':
     bIndex = getBoundaryIndex(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\boundary.txt')
-    pSet = pickle.load(open(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData3\pMatrix','r'))
-    imgSetDir = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData3\xi'
-    template = OBJ.obj(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\warpData3\warp.obj')
+    pSet = pickle.load(open(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\render2\pMatrix','r'))
+    imgSetDir = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\render2\images'    
+    landmarkPath = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\landmark.txt'
+    template = OBJ.obj(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\render2\iter3.obj')
     #template = OBJ.obj(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\ballCut2.obj')
     template.load()
     temp = copy.deepcopy(template)
     vCount = len(template.v)
-    M = getM(template, pSet[:-1], imgSetDir)
-    oriNorm1 = np.array(template.vn)
-    Norm = getNorm(template, M)
+    landmarkIndex = loadLandmark(landmarkPath)
+    D = np.zeros((3*vCount, 3*vCount))
+    for index in landmarkIndex:
+        for i in range(3):
+            D[3*index+i, 3*index+i] = 1
+    D = csr_matrix(D)
+    #M = getM(template, pSet[:-1], imgSetDir)
+    Norm = getNorm(template, pSet[:-1], imgSetDir)
     oriNorm = Norm[1:].T
     oriNormN = (np.array(map(np.linalg.norm, oriNorm))).reshape((vCount,1))
     oriNorm = oriNorm/oriNormN
     L = computeL(template)
     X0 = np.array(template.v).reshape((3*vCount,1))
     X = X0
-    for i in range(3):
-        Lx = L.dot(X)
-        Lx = Lx.reshape((len(Lx)/3,3))
-        
-        H = []
-        """
-        for (h, no) in zip(Lx, oriNorm):
-            hN = h.dot(no)/np.linalg.norm(h)
-            if hN > 0:
-                if hN < np.cos(np.pi*1/3):
-                    H.append(h)
-                else:
-                    H.append(np.linalg.norm(h)*no)
-            else:
-                if hN < np.cos(np.pi*1/3):
-                    H.append(h)
-                else:
-                    H.append(-np.linalg.norm(h)*no)
-        """
-        for (h, no) in zip(Lx, oriNorm):
-            hN = h.dot(no)/np.linalg.norm(h)
-            if hN > 0:
-                H.append(np.linalg.norm(h)*no)
-            else:
-                H.append(-np.linalg.norm(h)*no)
-        right = np.array(H).reshape((3*vCount,1))
-        xx = lsqr(L, right)[0]
+    Norm = oriNorm
+    for i in range(1):
+        H = computeH(L, X, Norm)
+        H = np.array(H).reshape((3*vCount,1))
+        #right = np.array(H).reshape((3*vCount,1))
+        #solutionX = lsqr(L, right)[0]
+        solutionX = computeX(L, H, D, pPlusSet, wSet)
         #xx = inv(L.T.dot(L)).dot(L.T).dot(b)
-        temp.v = xx.reshape((vCount,3))
+        temp.v = solutionX.reshape((vCount,3))
         temp.save(r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data\tempResult\normRec{}.obj'.format(i))
-        X = xx
+        X = solutionX
+        Norm = getNorm(temp, pSet[:-1], imgSetDir)
     
     
     

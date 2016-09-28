@@ -49,7 +49,7 @@ def computeTriangleArea(listVertex):
     vec2 = listVertex[0] - listVertex[2]
     return np.linalg.norm(np.cross(vec1, vec2))/2
     
-
+"""
 def computeH(template, L, norm):
     v = template.v
     ptsNum = len(v)
@@ -86,7 +86,11 @@ def computeHN(template, L, norm):
     H = np.reshape(h * norm, (norm.size, 1))
     return H
             
-#resultX = computeH(template, L, Norm)
-#for i in range(3):
-#    resultX[range(i, len(resultX), 3)] -= resultX[i]
-#template.v = resultX.reshape((len(resultX)/3, 3))
+def getBoundaryIndex(filePath):
+    bIndex = []
+    for i in open(filePath, 'r'):
+        bIndex.append(int(i))
+    return bIndex
+"""   
+
+    

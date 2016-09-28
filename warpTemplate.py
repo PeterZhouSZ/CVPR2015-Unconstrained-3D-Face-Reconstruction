@@ -142,12 +142,10 @@ def loadLandmark(fp):
     
 def itera(template):
     #L = calL(template)
-    vertex = np.array(template.v)
-    
+    vertex = np.array(template.v)  
     X = vertex.reshape((3*vCount,1))#3p vector
     #X = X0
     landmark3D = vertex[landmarkIndex]
-    #
     imgList = os.listdir(imgSetDir)
     Pset = []
     Wset = []
@@ -185,7 +183,7 @@ def itera(template):
     costV2.append(costVal2)
     newV = spsolve(sumL, sumR)
     template.v = newV.reshape((len(newV)/3, 3))
-    return template, pMatrix
+    return template, pMatrix, Wset, Pset
     
 
     
@@ -193,7 +191,7 @@ def itera(template):
 if __name__ == '__main__':
     time1 = time.time()
     rootDir = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data'
-    imgSetDir = os.path.join(rootDir, 'xi')
+    imgSetDir = os.path.join(rootDir, 'xitest')
     landmarkPath = os.path.join(rootDir, 'landmark.txt')
     templatePath = os.path.join(rootDir, 'template2.obj')
     tempPath = os.path.join(rootDir, 'tempResult')
@@ -215,7 +213,7 @@ if __name__ == '__main__':
     costV1 = []
     lamda = 1
     for i in range(4):
-        [template, pMatrix] = itera(template)
+        [template, pMatrix, Wset, Pset] = itera(template)
         L = calL(template)
         X = np.array(template.v).reshape((3*vCount,1))
         costV1.append(np.linalg.norm(L.dot(X) - L0.dot(X0)))
