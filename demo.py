@@ -45,6 +45,12 @@ def landmarkFromFacepp(imgPath):
     landmarkArray[:,1] = landmarkArray[:,1] * ySize / 100
     return landmarkArray
 
+def getAllLandmark(imgDir):
+    landmarkAll = []
+    for i in os.listdir(imgDir):
+        landmarkAll.append(landmarkFromFacepp(os.path.join(imgDir, i))[19:])
+    return landmarkAll
+
 #compute cot for L
 def calCot(vec1, vec2):
     cos = vec1.dot(vec2)/(np.sqrt(vec1.dot(vec1))*np.sqrt(vec2.dot(vec2)))
@@ -84,12 +90,12 @@ def getBoundaryIndex(filePath):
         bIndex.append(int(i))
     return bIndex
 
-def computeH(L, X, oriNorm):
+def computeH(L, X, norm):
     Lx = L.dot(X)
-    Lx = Lx.reshape((len(Lx)/3,3))        
+    Lx = Lx.reshape((len(Lx)/3,3))      
     H = []
     count = 0
-    for (h, no) in zip(Lx, oriNorm):
+    for (h, no) in zip(Lx, norm):
         if count in bIndex:
             H.append(h)
         else:
@@ -98,7 +104,8 @@ def computeH(L, X, oriNorm):
                 H.append(np.linalg.norm(h)*no)
             else:
                 H.append(-np.linalg.norm(h)*no)
-        count += 1        
+        count += 1
+    H = np.array(H).reshape((3*vCount,1))
     return H
 
 # compute P (weakly perspective)    
@@ -136,23 +143,18 @@ def loadLandmark(fp):
         line = line.split()[0]
         landmarkIndex.append(int(float(line))-1)
     return landmarkIndex[19:]
+
+
     
 def itera(template):
-    #L = computeL(template)
+    L = computeL(template)
     vertex = np.array(template.v)
-    X = vertex.reshape((3*vCount,1))#3p vector
-    #X = X0
+    X = vertex.reshape((3*vCount,1))
     landmark3D = vertex[landmarkIndex]
-    imgList = os.listdir(imgSetDir)
     Pset = []
     Wset = []
-    pMatrix = []
-    for im in imgList:
-        imgPath = os.path.join(imgSetDir, im)
-        landmark2D = landmarkFromFacepp(imgPath)[19:]
-        #landmark2D = landmarkFromFacepp(imgPath)
+    for landmark2D in landmarkAll:
         P = calP(landmark2D, landmark3D)
-        pMatrix.append(P)
         W = np.zeros((2*vCount,1))
         Pplus = np.zeros((2*vCount, 3*vCount))
         count = 0
@@ -160,26 +162,19 @@ def itera(template):
             Pplus[2*index:2*index+2, 3*index:3*index+3] = P[0:2,0:3]
             W[2*index] = landmark2D[count, 0] - P[0, 3]
             W[2*index+1] = landmark2D[count, 1] - P[1, 3]
-            #W[2*index] = landmark2D[count, 0]
-            #W[2*index+1] = landmark2D[count, 1]
             count = count + 1
-        Pplus = csr_matrix(Pplus)
-        W = csr_matrix(W)
-        Pset.append(Pplus)
-        Wset.append(W)     
-    sumL = L.dot(L)
-    sumR = sumL.dot(X)
-    costVal2 = 0
+        Pset.append(csr_matrix(Pplus))
+        Wset.append(csr_matrix(W))     
+    sumL = L.dot(L)    
+    sumR = computeH(L, X, template.vn)
     for i in range(len(Pset)):
-        #sumL = sumL + D.dot(Pset[i].T).dot(Pset[i]).dot(D)
         tempL = Pset[i].dot(D)
-        costVal2 = costVal2 + np.linalg.norm(tempL.dot(X) - Wset[i])
         sumL = sumL + lamda * tempL.T.dot(tempL)
         sumR = sumR + lamda * (Pset[i].T).dot(Wset[i])
-    costV2.append(costVal2)
     newV = spsolve(sumL, sumR)
     template.v = newV.reshape((len(newV)/3, 3))
-    return template, pMatrix, Wset, Pset
+    template.vnCal()
+    return template
     
 
     
@@ -193,13 +188,13 @@ if __name__ == '__main__':
     templatePath = os.path.join(rootDir, 'template2.obj')
     tempPath = os.path.join(rootDir, 'tempResult')
     bIndex = getBoundaryIndex(os.path.join(rootDir, 'boundary.txt'))
+    landmarkAll = getAllLandmark(imgSetDir)
     landmarkIndex = loadLandmark(landmarkPath)
     template = obj(templatePath)
     template.load()
     vCount = len(np.array(template.v))
-    X = np.array(template.v).reshape((3*vCount,1))
-    L = computeL(template)
-    H0 = computeH(L, X, template.vn)
+    oriNorm = template.vn[:]
+    X0 = np.array(template.v).reshape((3*vCount,1))
     #selection matrix
     D = np.zeros((3*vCount, 3*vCount))
     for index in landmarkIndex:
@@ -207,14 +202,12 @@ if __name__ == '__main__':
             D[3*index+i, 3*index+i] = 1
     D = csr_matrix(D)
     for i in range(4):
-        [template, pMatrix, Wset, Pset] = itera(template)
-        L = computeL(template)
-        X = np.array(template.v).reshape((3*vCount,1))
-        costV1.append(np.linalg.norm(L.dot(X) - L0.dot(X0)))
+        
+        template = itera(template)
         template.save(os.path.join(tempPath, 'iter{}.obj'.format(str(i))))
         print time.time() - time1
         time1 = time.time()
-    template.vnCal()
+    
     
 #    return template, pMatrix
     
