@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jan 06 21:09:02 2016
+Created on Wed Sep 28 21:09:02 2016
 
 @author: 开圣
 """
@@ -12,6 +12,7 @@ from PIL import Image,ImageDraw
 from OBJ import obj
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
+import itertools
 import time
 #face++ api
 from facepp import API,File
@@ -44,65 +45,57 @@ def landmarkFromFacepp(imgPath):
     landmarkArray[:,1] = landmarkArray[:,1] * ySize / 100
     return landmarkArray
 
-#calculate cot for L
+def getAllLandmark(imgDir):
+    landmarkAll = []
+    for i in os.listdir(imgDir):
+        landmarkAll.append(landmarkFromFacepp(os.path.join(imgDir, i))[19:])
+    return landmarkAll
+
+#compute cot for L
 def calCot(vec1, vec2):
     cos = vec1.dot(vec2)/(np.sqrt(vec1.dot(vec1))*np.sqrt(vec2.dot(vec2)))
     sin = np.sqrt(1 - cos**2)
     cot = cos/sin
     return cot
-
-
-
-# calculate L
-def calL(obj):
-    ptsNum = len(obj.v)
+# compute L
+def computeL(template):
+    ptsNum = len(template.v)
     L = np.zeros((3*ptsNum, 3*ptsNum))
-    for face in obj.face:
-        p = map(np.array, map(lambda x:obj.v[x], face))
-        for i in range(3):
-            for j in range(3):
-                if i != j:
-                    k = 3 - i -j
-                    if L[3*face[i], 3*face[j]] == 0:
-                        val = calCot(p[k]-p[i], p[k]-p[j])
-                        L[3*face[i], 3*face[j]] = val
-                        L[3*face[i]+1, 3*face[j]+1] = val
-                        L[3*face[i]+2, 3*face[j]+2] = val
-                    else:
-                        val = 0.5 * (calCot(p[k]-p[i], p[k]-p[j]) + L[3*face[i], 3*face[j]])
-                        L[3*face[i], 3*face[j]] = val
-                        L[3*face[i]+1, 3*face[j]+1] = val
-                        L[3*face[i]+2, 3*face[j]+2] = val
+    L = csr_matrix(L)
+    for face in template.face:
+        p = map(np.array, map(lambda x:template.v[x], face))
+        perm = itertools.permutations((0,1,2))
+        for (i,j,k) in perm:
+            if L[3*face[i], 3*face[j]] == 0:
+                val = calCot(p[k]-p[i], p[k]-p[j])
+                L[3*face[i], 3*face[j]] = val
+                L[3*face[i]+1, 3*face[j]+1] = val
+                L[3*face[i]+2, 3*face[j]+2] = val
+            else:
+                val = 0.5 * (calCot(p[k]-p[i], p[k]-p[j]) + L[3*face[i], 3*face[j]])
+                L[3*face[i], 3*face[j]] = val
+                L[3*face[i]+1, 3*face[j]+1] = val
+                L[3*face[i]+2, 3*face[j]+2] = val
     for i in range(ptsNum):
         tempSum = sum(L[3*i,:])
         L[3*i, 3*i] = -tempSum
         L[3*i+1, 3*i+1] = -tempSum
         L[3*i+2, 3*i+2] = -tempSum
-    L = csr_matrix(L)        
+    #LPlus = np.r_[np.ones((3,3*ptsNum)),L]
+            
     return L
 
-# calculate P (weakly perspective)    
+
+# compute P (weakly perspective)    
 def calP(landmark2D, landmark3D):
     b1 = landmark2D[:,0]
     b2 = landmark2D[:,1]
-    #b1 = landmark2D[19:, 0]#without contour
-    #b2 = landmark2D[19:, 0]
     A = np.c_[landmark3D, np.ones((len(landmark3D), 1))]
-    #import pdb
-    #pdb.set_trace()
     m1 = np.linalg.lstsq(A, b1)[0]
     m2 = np.linalg.lstsq(A, b2)[0]
     P = np.c_[m1, m2, np.array([0,0,0,1])]
     return P.T
-
-#calculate mean curvature
-#def calH(obj, L):
-#    count = len(obj.v)
-#    valueH = np.zeros((count, 1))
-#    for face in obj.face:
-#       p = map(np.array, map(lambda x:obj.v[x], face))
-
-
+    
 # draw landmark     
 def drawL(img, landmark):
     #img = Image.open(imgPath)
@@ -119,17 +112,6 @@ def drawL(img, landmark):
 def projectL(P, landmark3D):
     lm = np.c_[landmark3D, np.ones((len(landmark3D), 1))]
     return P.dot(lm.T).T[:,0:2]    
-    
-#load landmark index
-'''    
-def loadLandmark(fp):
-    text = open(fp, 'r')    
-    landmarkIndex = []
-    for line in text:
-        line = line.split()[0]
-        landmarkIndex.append(int(float(line))-1)
-    return landmarkIndex
-'''
 
 #load landmark index without contour
 def loadLandmark(fp):
@@ -139,88 +121,68 @@ def loadLandmark(fp):
         line = line.split()[0]
         landmarkIndex.append(int(float(line))-1)
     return landmarkIndex[19:]
+
+
     
 def itera(template):
-    #L = calL(template)
-    vertex = np.array(template.v)  
-    X = vertex.reshape((3*vCount,1))#3p vector
-    #X = X0
+    L = computeL(template)
+    vertex = np.array(template.v)
+    X = vertex.reshape((3*vCount,1))
     landmark3D = vertex[landmarkIndex]
-    imgList = os.listdir(imgSetDir)
     Pset = []
     Wset = []
-    pMatrix = []
-    for im in imgList:
-        imgPath = os.path.join(imgSetDir, im)
-        landmark2D = landmarkFromFacepp(imgPath)[19:]
-        #landmark2D = landmarkFromFacepp(imgPath)
+    for landmark2D in landmarkAll:
         P = calP(landmark2D, landmark3D)
-        pMatrix.append(P)
-        W = np.zeros((2*vCount,1))
-        Pplus = np.zeros((2*vCount, 3*vCount))
+        W = csr_matrix(np.zeros((2*vCount,1)))
+        Pplus = csr_matrix(p.zeros((2*vCount, 3*vCount)))
         count = 0
         for index in landmarkIndex:
             Pplus[2*index:2*index+2, 3*index:3*index+3] = P[0:2,0:3]
             W[2*index] = landmark2D[count, 0] - P[0, 3]
             W[2*index+1] = landmark2D[count, 1] - P[1, 3]
-            #W[2*index] = landmark2D[count, 0]
-            #W[2*index+1] = landmark2D[count, 1]
             count = count + 1
-        Pplus = csr_matrix(Pplus)
-        W = csr_matrix(W)
         Pset.append(Pplus)
-        Wset.append(W)
-        
-    sumL = L.dot(L)
+        Wset.append(W)     
+    sumL = L.dot(L)    
     sumR = sumL.dot(X)
-    costVal2 = 0
     for i in range(len(Pset)):
-        #sumL = sumL + D.dot(Pset[i].T).dot(Pset[i]).dot(D)
         tempL = Pset[i].dot(D)
-        costVal2 = costVal2 + np.linalg.norm(tempL.dot(X) - Wset[i])
         sumL = sumL + lamda * tempL.T.dot(tempL)
         sumR = sumR + lamda * (Pset[i].T).dot(Wset[i])
-    costV2.append(costVal2)
     newV = spsolve(sumL, sumR)
     template.v = newV.reshape((len(newV)/3, 3))
-    return template, pMatrix, Wset, Pset
+    template.vnCal()
+    return template
     
 
     
 #def main():
 if __name__ == '__main__':
+    lamda = 1
     time1 = time.time()
     rootDir = r'D:\WinPython-64bit-2.7.10.1\mine\Unconstrained 3D Face Reconstruction\data'
-    imgSetDir = os.path.join(rootDir, 'xitest')
+    imgSetDir = os.path.join(rootDir, 'test')
     landmarkPath = os.path.join(rootDir, 'landmark.txt')
-    templatePath = os.path.join(rootDir, 'template2.obj')
+    templatePath = os.path.join(rootDir, 'template.obj')
     tempPath = os.path.join(rootDir, 'tempResult')
+    landmarkAll = getAllLandmark(imgSetDir)
     landmarkIndex = loadLandmark(landmarkPath)
     template = obj(templatePath)
     template.load()
     vCount = len(np.array(template.v))
-    X = np.array(template.v).reshape((3*vCount,1))
-    X0 = X[:]
-    L = calL(template)
-    L0 = L[:]
+    X0 = np.array(template.v).reshape((3*vCount,1))
     #selection matrix
     D = np.zeros((3*vCount, 3*vCount))
+    D = csr_matrix(D)
     for index in landmarkIndex:
         for i in range(3):
-            D[3*index+i, 3*index+i] = 1
-    D = csr_matrix(D)
-    costV2 = []
-    costV1 = []
-    lamda = 1
-    for i in range(4):
-        [template, pMatrix, Wset, Pset] = itera(template)
-        L = calL(template)
-        X = np.array(template.v).reshape((3*vCount,1))
-        costV1.append(np.linalg.norm(L.dot(X) - L0.dot(X0)))
+            D[3*index+i, 3*index+i] = 1   
+    for i in range(2):      
+        template = itera(template)
         template.save(os.path.join(tempPath, 'iter{}.obj'.format(str(i))))
         print time.time() - time1
         time1 = time.time()
-    template.vnCal()
+    
     
 #    return template, pMatrix
     
