@@ -20,9 +20,9 @@ class obj:
         
     def load(self):
         f = open(self.path, 'r')
-        for line in f:
-            if line:
-                line = line.split(' ')
+        for l in f:
+            line = l.split()
+            if len(line)>3:
                 if line[0] == 'v':
                     vTemp = map(float, line[1:4])
                     self.v.append(vTemp)
@@ -38,15 +38,16 @@ class obj:
                     vnfaceTemp = []
                     vtfaceTemp = []
                     for i in range(1,4):
-                        lineTemp = line[i]
-                        lineTemp = map(int, lineTemp.split('/'))
+                        lineTemp = line[i].split('/')
                         for j in range(k):
                             if j == 0:
-                                faceTemp.append(lineTemp[0] - 1)                           
+                                faceTemp.append(int(lineTemp[0]) - 1)                           
                             if j == 1:
-                                vtfaceTemp.append(lineTemp[1] - 1)                            
+                                if lineTemp[1]:
+                                    vtfaceTemp.append(int(lineTemp[1]) - 1)                            
                             if j == 2:
-                                vnfaceTemp.append(lineTemp[2] - 1)                            
+                                if lineTemp[2]:
+                                    vnfaceTemp.append(int(lineTemp[2]) - 1)                            
                     self.face.append(faceTemp)
                     if k == 2:
                         self.vtface.append(vtfaceTemp)
@@ -60,8 +61,9 @@ class obj:
                 
     #cal the vn
     def vnCal(self):
+        self.vn = []
         vArray = self.v
-        normsTemp = []#save the normal value
+        normsTemp = []#save the norms value
         for i in range(len(self.v)):
             normsTemp.append([])
         for face in self.face:
@@ -75,12 +77,10 @@ class obj:
             normsTemp[face[2]].append(tempNorm)
         
         for norm in normsTemp:
-            norm = map(np.mean, np.rot90(norm))
+            norm = np.array(norm).mean(axis=0)
+            norm = norm/np.linalg.norm(norm)
             self.vn.append(norm)
-    
-
-        
-        
+            
     #save as obj file
     def save(self, fp):
         fout = open(fp, 'w')
