@@ -18,8 +18,8 @@ import itertools
 import time
 #face++ api
 from facepp import API,File
-API_KEY = "b068f469bf92bbf202a2a351093f81c3"
-API_SECRET = "9Bu9gj1RMTPM97htY7loSW-kxjXztZws"
+API_KEY = "*"
+API_SECRET = "*"
 api = API(API_KEY,API_SECRET)
 
 def landmarkFromFacepp(imgPath):
